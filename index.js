@@ -172,6 +172,7 @@ initDb().then((db) => {
         })
         .then((res) => {
             const obj = JSON.parse(decodeURIComponent(String.fromCharCode(...res.Payload)))
+            console.log(obj)
             const filename = `/tmp/cookie_${Math.random()}.txt`
             fs.writeFileSync(filename, Buffer.from(obj.data, 'base64'))
 
