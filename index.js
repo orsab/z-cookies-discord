@@ -113,7 +113,7 @@ initDb().then((db) => {
     if (commandName === "cookie") {
       const tag = options.data.find((d) => d.name === "tag")?.value;
       const country = options.data.find((d) => d.name === "country")?.value;
-      const count = options.data.find((d) => d.name === "count")?.value;
+      let count = options.data.find((d) => d.name === "count")?.value;
       const include = options.data.find((d) => d.name === "include")?.value;
       const exclude = options.data.find((d) => d.name === "exclude")?.value;
       const proxy = options.data.find((d) => d.name === "proxy")?.value;
@@ -149,7 +149,6 @@ initDb().then((db) => {
       let payload = {
         tag,
         country,
-        count,
       };
       if (proxyServer) {
         payload = { ...payload, ...proxyServer };
@@ -162,33 +161,42 @@ initDb().then((db) => {
       }
 
       console.log(payload);
+      if(!count){
+          count = 1
+      }
+      else if(count > 6){
+          count = 6
+      }
 
-      client
-        .invoke({
-          FunctionName: "zorrox-cookies-dev-cookies",
-          InvocationType: "RequestResponse",
-          LogType: "Tail",
-          Payload: JSON.stringify(payload),
-        })
-        .then((res) => {
-            const obj = JSON.parse(decodeURIComponent(String.fromCharCode(...res.Payload)))
-            console.log(obj)
-            const filename = `/tmp/cookie_${Math.random()}.txt`
-            fs.writeFileSync(filename, Buffer.from(obj.data, 'base64'))
-
-          interaction.followUp({
-              ephemeral:true,
-              content:'UserAgent: ' + obj.userAgent,
-              files:[
-                  filename
-              ]
-          });
-        }).catch(e => {
-            interaction.followUp({
-                content:'Error, Something not went fine...',
-                ephemeral:true
-            });
-        })
+      while(count--){
+          client
+            .invoke({
+              FunctionName: "zorrox-cookies-dev-cookies",
+              InvocationType: "RequestResponse",
+              LogType: "Tail",
+              Payload: JSON.stringify(payload),
+            })
+            .then((res) => {
+                console.log('Done')
+                const obj = JSON.parse(decodeURIComponent(String.fromCharCode(...res.Payload)))
+                console.log(obj)
+                const filename = `/tmp/cookie_${Math.random()}.txt`
+                fs.writeFileSync(filename, Buffer.from(obj.data, 'base64'))
+    
+              interaction.followUp({
+                  ephemeral:true,
+                  content:'UserAgent: ' + obj.userAgent,
+                  files:[
+                      filename
+                  ]
+              });
+            }).catch(e => {
+                interaction.followUp({
+                    content:`Error, Something not went fine... ${String(e)}`,
+                    ephemeral:true
+                });
+            })
+      }
 
       interaction.reply({
           content: `Task created params: `+JSON.stringify({
