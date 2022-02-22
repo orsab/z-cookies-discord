@@ -33,9 +33,7 @@ const DB = () => {
   const buyPackage = async (memberId, cost) => {
     const member = await getMember(memberId);
 
-    console.log(Number(member.balance)+0.1,  Number(cost))
-
-    if(Number(member.balance) + 0.1 < Number(cost)){
+    if(!member || Number(member.balance) + 0.1 < Number(cost)){
       throw new Error('Not enough balance')
     }
 
