@@ -199,15 +199,7 @@ initDb().then((db) => {
       }
 
       interaction.reply({
-          content: `Task created params: `+JSON.stringify({
-            tag,
-            count,
-            country,
-            include,
-            exclude,
-            proxy,
-            proxyServer,
-          }),
+          content: `Job started!`,
           ephemeral:true
       });
     }
