@@ -32,7 +32,7 @@ initDb().then((db) => {
   const getAvailableProxyCountries = async () => {
     const countries = {};
     const res = await axios.get(
-      `https://proxy6.net/api/fa9c175c3c-694ba82d5e-cead8871da/getproxy`
+      `https://proxy6.net/api/${process.env.PROXY6_TOKEN}/getproxy`
     );
     Object.values(res.data.list)
       .filter((l) => l.active === "1")
@@ -234,7 +234,7 @@ initDb().then((db) => {
           getMember(id)
             .then(member => {
                 interaction.reply({
-                  content: `Job started! Remain balance: ${member.balance.toFixed(7)}, job cost: ${cost}`,
+                  content: `Job started! Remain balance: ${member.balance.toFixed(7)}, job cost: ${cost.toFixed(7)}`,
                   ephemeral: true,
                 });
             })

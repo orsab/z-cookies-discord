@@ -12,6 +12,17 @@
 ### Istallation
 ```bash
 $ npm i
+$ cp .env.example .env
+$ vi .env
+
+DISCORDJS_BOT_TOKEN=    # Bot token
+DISCORDJS_GUILDID=      # Guild token
+CUSTODIAN_WALLET=       # Private key of Stellar receiver wallet
+NETWORK=testnet         # testnet | public
+AWS_USER=               # AWS user lambda invoke
+AWS_PASS=               # AWS password
+PROXY6_TOKEN=           # proxy6.net API token
+
 $ node index.js
 ```
 
