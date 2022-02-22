@@ -57,7 +57,9 @@ initDb().then((db) => {
           if (to_muxed_id) {
             getMember(to_muxed_id)
               .then((member) => {
-                depositBalance(to_muxed_id, amount);
+                  if(member){
+                    return depositBalance(member.id, amount)
+                  }
               })
               .catch((e) => {
                 linkMember(to_muxed_id, to_muxed).then(() =>
