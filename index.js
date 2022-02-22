@@ -166,8 +166,8 @@ initDb().then((db) => {
       if(!count){
           count = 1
       }
-      else if(count > 6){
-          count = 6
+      else if(count > 50){
+          count = 50
       }
 
       while(count--){
