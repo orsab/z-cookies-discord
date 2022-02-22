@@ -1,10 +1,16 @@
 require("dotenv").config();
-const { Client, Intents, Constants,MessageAttachment,MessageEmbed } = require("discord.js");
+const {
+  Client,
+  Intents,
+  Constants,
+  MessageAttachment,
+  MessageEmbed,
+} = require("discord.js");
 const axios = require("axios");
 const fs = require("fs");
 const { initDb, getMember, linkMember } = require("./db")();
 const { LambdaClient, Lambda } = require("@aws-sdk/client-lambda");
-const { Snowflake } = require('nodejs-snowflake');
+const { Snowflake } = require("nodejs-snowflake");
 
 const uid = new Snowflake();
 
@@ -127,10 +133,10 @@ initDb().then((db) => {
         const results = match.exec(proxy);
         if (results.length !== 6) {
           interaction.followUp({
-              content:"Bad proxy supplied",
-              ephemeral:true
+            content: "Bad proxy supplied",
+            ephemeral: true,
           });
-          return
+          return;
         } else {
           proxyServer = {
             proxyHost: `${results[1]}://${results[4]}:${results[5]}`,
@@ -144,65 +150,72 @@ initDb().then((db) => {
         region: "us-east-1",
         credentials: {
           accessKeyId: process.env.AWS_USER,
-          secretAccessKey: process.env.AWS_PASS
+          secretAccessKey: process.env.AWS_PASS,
         },
       });
+
+      if (!lcount) {
+        lcount = 1;
+      } else if (lcount > 20) {
+        lcount = 20;
+      }
+
       let payload = {
         tag,
         country,
-        count: lcount
+        count: lcount,
       };
       if (proxyServer) {
         payload = { ...payload, ...proxyServer };
       }
-      if(include){
-          payload.include = include.split(',').filter(l => l.includes('.'))
+      if (include) {
+        payload.include = include.split(",").filter((l) => l.includes("."));
       }
-      if(exclude){
-          payload.exclude = exclude.split(',')
+      if (exclude) {
+        payload.exclude = exclude.split(",");
       }
 
       console.log(payload);
-      if(!count){
-          count = 1
-      }
-      else if(count > 50){
-          count = 50
+      if (!count) {
+        count = 1;
+      } else if (count > 50) {
+        count = 50;
       }
 
-      while(count--){
-          client
-            .invoke({
-              FunctionName: "zorrox-cookies-dev-cookies",
-              InvocationType: "RequestResponse",
-              LogType: "Tail",
-              Payload: JSON.stringify(payload),
-            })
-            .then((res) => {
-                console.log('Done')
-                const obj = JSON.parse(decodeURIComponent(String.fromCharCode(...res.Payload)))
-                console.log(obj)
-                const filename = `/tmp/cookie_${Math.random()}.txt`
-                fs.writeFileSync(filename, Buffer.from(obj.data, 'base64'))
-    
-              interaction.followUp({
-                  ephemeral:true,
-                  content:'UserAgent: ' + obj.userAgent,
-                  files:[
-                      filename
-                  ]
-              });
-            }).catch(e => {
-                interaction.followUp({
-                    content:`Error, Something not went fine... ${String(e)}`,
-                    ephemeral:true
-                });
-            })
+      while (count--) {
+        client
+          .invoke({
+            FunctionName: "zorrox-cookies-dev-cookies",
+            InvocationType: "RequestResponse",
+            LogType: "Tail",
+            Payload: JSON.stringify(payload),
+          })
+          .then((res) => {
+            console.log("Done");
+            const obj = JSON.parse(
+              decodeURIComponent(String.fromCharCode(...res.Payload))
+            );
+            console.log(obj);
+            const filename = `/tmp/cookie_${Math.random()}.txt`;
+            fs.writeFileSync(filename, Buffer.from(obj.data, "base64"));
+
+            interaction.followUp({
+              ephemeral: true,
+              content: "UserAgent: " + obj.userAgent,
+              files: [filename],
+            });
+          })
+          .catch((e) => {
+            interaction.followUp({
+              content: `Error, Something not went fine... ${String(e)}`,
+              ephemeral: true,
+            });
+          });
       }
 
       interaction.reply({
-          content: `Job started!`,
-          ephemeral:true
+        content: `Job started!`,
+        ephemeral: true,
       });
     }
   });
