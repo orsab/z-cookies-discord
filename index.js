@@ -55,17 +55,17 @@ initDb().then((db) => {
         },
         {
           name: "count",
-          description: "Count found results to use, default = 1",
+          description: "Count of cookie files, default = 1",
+          type: Constants.ApplicationCommandOptionTypes.NUMBER,
+        },
+        {
+          name: "lcount",
+          description: "Count of internal site links to visit, default = 3",
           type: Constants.ApplicationCommandOptionTypes.NUMBER,
         },
         {
           name: "include",
           description: "Force include links, separated with commas",
-          type: Constants.ApplicationCommandOptionTypes.STRING,
-        },
-        {
-          name: "exclude",
-          description: "Force exclude into link, separated with commas",
           type: Constants.ApplicationCommandOptionTypes.STRING,
         },
         {
@@ -114,6 +114,7 @@ initDb().then((db) => {
       const tag = options.data.find((d) => d.name === "tag")?.value;
       const country = options.data.find((d) => d.name === "country")?.value;
       let count = options.data.find((d) => d.name === "count")?.value;
+      let lcount = options.data.find((d) => d.name === "lcount")?.value;
       const include = options.data.find((d) => d.name === "include")?.value;
       const exclude = options.data.find((d) => d.name === "exclude")?.value;
       const proxy = options.data.find((d) => d.name === "proxy")?.value;
@@ -149,12 +150,13 @@ initDb().then((db) => {
       let payload = {
         tag,
         country,
+        count: lcount
       };
       if (proxyServer) {
         payload = { ...payload, ...proxyServer };
       }
       if(include){
-          payload.include = include.split(',')
+          payload.include = include.split(',').filter(l => l.includes('.'))
       }
       if(exclude){
           payload.exclude = exclude.split(',')
