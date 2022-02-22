@@ -16,7 +16,8 @@ const { initDb, getMember, buyPackage, depositBalance, linkMember } =
 const { Lambda } = require("@aws-sdk/client-lambda");
 
 const stellar = StellarHandler.getInstance();
-const PRICE = 1.2
+// stellar.getMuxedAccount('944190830279790662').then(a => console.log(a.accountId()))
+const PRICE = Number(process.env.PRICE);
 
 console.log(process.env.DISCORDJS_BOT_TOKEN);
 
@@ -53,7 +54,17 @@ initDb().then((db) => {
           const { from, to, to_muxed, to_muxed_id, amount } = message;
           console.log({ from, to_muxed, to_muxed_id, amount });
 
-          depositBalance(to_muxed_id, amount);
+          if (to_muxed_id) {
+            getMember(to_muxed_id)
+              .then((member) => {
+                depositBalance(to_muxed_id, amount);
+              })
+              .catch((e) => {
+                linkMember(to_muxed_id, to_muxed).then(() =>
+                  depositBalance(to_muxed_id, amount)
+                );
+              });
+          }
         },
       });
 
@@ -187,7 +198,7 @@ initDb().then((db) => {
       }
 
       const id = interaction.member.id;
-      const cost = PRICE * count
+      const cost = PRICE * count;
 
       buyPackage(id, cost)
         .then(() => {
@@ -231,14 +242,14 @@ initDb().then((db) => {
               });
           }
 
-          getMember(id)
-            .then(member => {
-                interaction.reply({
-                  content: `Job started! Remain balance: ${member.balance.toFixed(7)}, job cost: ${cost.toFixed(7)}`,
-                  ephemeral: true,
-                });
-            })
-
+          getMember(id).then((member) => {
+            interaction.reply({
+              content: `Job started! Remain balance: ${member.balance.toFixed(
+                7
+              )}, job cost: ${cost.toFixed(7)}`,
+              ephemeral: true,
+            });
+          });
         })
         .catch((e) => {
           interaction.reply({

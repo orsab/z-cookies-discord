@@ -22,6 +22,7 @@ NETWORK=testnet         # testnet | public
 AWS_USER=               # AWS user lambda invoke
 AWS_PASS=               # AWS password
 PROXY6_TOKEN=           # proxy6.net API token
+PRICE=                  # price per cookie
 
 $ node index.js
 ```
