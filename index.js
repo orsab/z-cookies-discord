@@ -5,14 +5,18 @@ const {
   Constants,
   MessageAttachment,
   MessageEmbed,
+  MessageButton,
+  MessageActionRow,
 } = require("discord.js");
 const axios = require("axios");
+const StellarHandler = require("./stellar");
 const fs = require("fs");
-const { initDb, getMember, linkMember } = require("./db")();
-const { LambdaClient, Lambda } = require("@aws-sdk/client-lambda");
-const { Snowflake } = require("nodejs-snowflake");
+const { initDb, getMember, buyPackage, depositBalance, linkMember } =
+  require("./db")();
+const { Lambda } = require("@aws-sdk/client-lambda");
 
-const uid = new Snowflake();
+const stellar = StellarHandler.getInstance();
+const PRICE = 1.2
 
 console.log(process.env.DISCORDJS_BOT_TOKEN);
 
@@ -39,6 +43,20 @@ initDb().then((db) => {
   };
 
   client.on("ready", async (param) => {
+    const publicKey = stellar.custodian.publicKey();
+    stellar.server
+      .payments()
+      .forAccount(publicKey)
+      .cursor("now")
+      .stream({
+        onmessage: (message) => {
+          const { from, to, to_muxed, to_muxed_id, amount } = message;
+          console.log({ from, to_muxed, to_muxed_id, amount });
+
+          depositBalance(to_muxed_id, amount);
+        },
+      });
+
     const guild = client.guilds.cache.get(process.env.DISCORDJS_GUILDID);
 
     const countries = await getAvailableProxyCountries();
@@ -50,7 +68,7 @@ initDb().then((db) => {
         {
           name: "tag",
           description:
-            "Sentence to search in google, default: 'crypto exchange'",
+            "Sentence to search in google, comma separated, default: 'crypto exchange'",
           type: Constants.ApplicationCommandOptionTypes.STRING,
         },
         {
@@ -61,12 +79,13 @@ initDb().then((db) => {
         },
         {
           name: "count",
-          description: "Count of cookie files, default = 1",
+          description: "Count of cookie files, default = 1, max = 50",
           type: Constants.ApplicationCommandOptionTypes.NUMBER,
         },
         {
           name: "lcount",
-          description: "Count of internal site links to visit, default = 3",
+          description:
+            "Count of internal site links to visit, default = 4, max = 15",
           type: Constants.ApplicationCommandOptionTypes.NUMBER,
         },
         {
@@ -83,30 +102,15 @@ initDb().then((db) => {
       ],
     });
 
-    // guild.commands.create({
-    //   name: "tip",
-    //   description: "Send tip to another participant",
-    //   options: [
-    //     {
-    //       name: "to",
-    //       description: "Send to user",
-    //       required: true,
-    //       type: Constants.ApplicationCommandOptionTypes.USER,
-    //     },
-    //     {
-    //       name: "amount",
-    //       description: "Amount to send",
-    //       required: true,
-    //       type: Constants.ApplicationCommandOptionTypes.INTEGER,
-    //       choices: [
-    //         { name: "1", value: 1 },
-    //         { name: "5", value: 5 },
-    //         { name: "10", value: 10 },
-    //         { name: "100", value: 100 },
-    //       ],
-    //     },
-    //   ],
-    // });
+    guild.commands.create({
+      name: "info",
+      description: "Get information about the user",
+    });
+
+    guild.commands.create({
+      name: "deposit",
+      description: "Deposit balance",
+    });
 
     console.log(`Bot ready!`);
   });
@@ -156,8 +160,8 @@ initDb().then((db) => {
 
       if (!lcount) {
         lcount = 1;
-      } else if (lcount > 20) {
-        lcount = 20;
+      } else if (lcount > 15) {
+        lcount = 15;
       }
 
       let payload = {
@@ -182,40 +186,100 @@ initDb().then((db) => {
         count = 50;
       }
 
-      while (count--) {
-        client
-          .invoke({
-            FunctionName: "zorrox-cookies-dev-cookies",
-            InvocationType: "RequestResponse",
-            LogType: "Tail",
-            Payload: JSON.stringify(payload),
-          })
-          .then((res) => {
-            console.log("Done");
-            const obj = JSON.parse(
-              decodeURIComponent(String.fromCharCode(...res.Payload))
-            );
-            console.log(obj);
-            const filename = `/tmp/cookie_${Math.random()}.txt`;
-            fs.writeFileSync(filename, Buffer.from(obj.data, "base64"));
+      const id = interaction.member.id;
+      const cost = PRICE * count
 
-            interaction.followUp({
-              ephemeral: true,
-              content: "UserAgent: " + obj.userAgent,
-              files: [filename],
-            });
-          })
-          .catch((e) => {
-            interaction.followUp({
-              content: `Error, Something not went fine... ${String(e)}`,
-              ephemeral: true,
-            });
+      buyPackage(id, cost)
+        .then(() => {
+          while (count--) {
+            client
+              .invoke({
+                FunctionName: "zorrox-cookies-dev-cookies",
+                InvocationType: "RequestResponse",
+                LogType: "Tail",
+                Payload: JSON.stringify(payload),
+              })
+              .then((res) => {
+                console.log("Done");
+                const obj = JSON.parse(
+                  decodeURIComponent(String.fromCharCode(...res.Payload))
+                );
+
+                if (!obj.data) {
+                  interaction.followUp({
+                    content: `Error, empty output. Try again with different options`,
+                    ephemeral: true,
+                  });
+                  return;
+                }
+
+                console.log(obj);
+                const filename = `/tmp/cookie_${Math.random()}.txt`;
+                fs.writeFileSync(filename, Buffer.from(obj.data, "base64"));
+
+                interaction.followUp({
+                  ephemeral: true,
+                  content: "UserAgent: " + obj.userAgent,
+                  files: [filename],
+                });
+              })
+              .catch((e) => {
+                interaction.followUp({
+                  content: `Error, Something not went fine... ${String(e)}`,
+                  ephemeral: true,
+                });
+              });
+          }
+
+          getMember(id)
+            .then(member => {
+                interaction.reply({
+                  content: `Job started! Remain balance: ${member.balance.toFixed(7)}, job cost: ${cost}`,
+                  ephemeral: true,
+                });
+            })
+
+        })
+        .catch((e) => {
+          interaction.reply({
+            content: `Job cannot start: ${e}`,
+            ephemeral: true,
           });
-      }
+        });
+    } else if (commandName === "deposit") {
+      const id = interaction.member.id;
+      StellarHandler.getInstance()
+        .getMuxedAccount(id)
+        .then((address) => linkMember(id, address.accountId()))
+        .then((member) => {
+          interaction.reply({
+            content: `Please, send XLM to this address: ${member.address}`,
+            ephemeral: true,
+          });
+        })
+        .catch((e) => {
+          interaction.reply({
+            content: `Error generation of address`,
+            ephemeral: true,
+          });
+        });
+    } else if (commandName === "info") {
+      const id = interaction.member.id;
 
-      interaction.reply({
-        content: `Job started!`,
-        ephemeral: true,
+      getMember(id).then((info) => {
+        if (info) {
+          interaction.reply({
+            content: `**address**: ${
+              info.address
+            }\n**balance**: ${info.balance.toFixed(7)}`,
+            ephemeral: true,
+          });
+        } else {
+          interaction.reply({
+            content: `No user found`,
+            ephemeral: true,
+          });
+        }
       });
     }
   });

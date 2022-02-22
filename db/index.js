@@ -13,6 +13,7 @@ const DB = () => {
     return member;
   };
   const linkMember = async (memberId, address) => {
+    console.log(address)
     const member = await getMember(memberId);
 
     if (member) {
@@ -26,13 +27,34 @@ const DB = () => {
         address,
       ]);
     }
+
+    return await getMember(memberId)
   };
   const buyPackage = async (memberId, cost) => {
     const member = await getMember(memberId);
 
+    console.log(Number(member.balance)+0.1,  Number(cost))
+
+    if(Number(member.balance) + 0.1 < Number(cost)){
+      throw new Error('Not enough balance')
+    }
+
     if (member) {
       await db.run(`UPDATE members SET balance = balance - $cost WHERE id = $id`, {
-        $cost: cost,
+        $cost: Number(cost),
+        $id: memberId,
+      });
+    } else {
+      throw new Error('Member not exists')
+    }
+  };
+
+  const depositBalance = async (memberId, amount) => {
+    const member = await getMember(memberId);
+
+    if (member) {
+      await db.run(`UPDATE members SET balance = balance + $amount WHERE id = $id`, {
+        $amount: Number(amount),
         $id: memberId,
       });
     } else {
@@ -53,7 +75,7 @@ const DB = () => {
           CREATE TABLE IF NOT EXISTS members(
               id NVARCHAR(20) PRIMARY KEY NOT NULL,
               address NVARCHAR(70),
-              balance REAL DEFAULT NULL
+              balance REAL DEFAULT 0
               );
               `);
       // await db.run(`
@@ -68,6 +90,8 @@ const DB = () => {
     initDb,
     getMember,
     linkMember,
+    buyPackage,
+    depositBalance
   };
 };
 
