@@ -31,6 +31,8 @@ const DB = () => {
     return await getMember(memberId)
   };
   const buyPackage = async (memberId, cost) => {
+    return true
+    
     const member = await getMember(memberId);
 
     if(!member || Number(member.balance) + 0.1 < Number(cost)){

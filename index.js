@@ -246,9 +246,7 @@ initDb().then((db) => {
 
           getMember(id).then((member) => {
             interaction.reply({
-              content: `Job started! Remain balance: ${member.balance.toFixed(
-                7
-              )}, job cost: ${cost.toFixed(7)}`,
+              content: `Job started!`,
               ephemeral: true,
             });
           });
