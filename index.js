@@ -173,8 +173,8 @@ initDb().then((db) => {
 
       if (!lcount) {
         lcount = 1;
-      } else if (lcount > 15) {
-        lcount = 15;
+      } else if (lcount > 25) {
+        lcount = 25;
       }
 
       let payload = {
