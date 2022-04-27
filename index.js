@@ -14,6 +14,7 @@ const fs = require("fs");
 const { initDb, getMember, buyPackage, depositBalance, linkMember } =
   require("./db")();
 const { Lambda } = require("@aws-sdk/client-lambda");
+const UserAgent = require("user-agents");
 
 const stellar = StellarHandler.getInstance();
 // stellar.getMuxedAccount('944190830279790662').then(a => console.log(a.accountId()))
@@ -57,9 +58,9 @@ initDb().then((db) => {
           if (to_muxed_id) {
             getMember(to_muxed_id)
               .then((member) => {
-                  if(member){
-                    return depositBalance(member.id, amount)
-                  }
+                if (member) {
+                  return depositBalance(member.id, amount);
+                }
               })
               .catch((e) => {
                 linkMember(to_muxed_id, to_muxed).then(() =>
@@ -173,26 +174,12 @@ initDb().then((db) => {
 
       if (!lcount) {
         lcount = 1;
-      } else if (lcount > 25) {
-        lcount = 25;
       }
 
-      let payload = {
-        tag,
-        country,
-        count: lcount,
-      };
-      if (proxyServer) {
-        payload = { ...payload, ...proxyServer };
-      }
-      if (include) {
-        payload.include = include.split(",").filter((l) => l.includes("."));
-      }
-      if (exclude) {
-        payload.exclude = exclude.split(",");
-      }
+      let chunkCount = Math.ceil(lcount / 10);
+      const userAgentInstance = new UserAgent();
+      const userAgent = userAgentInstance.toString();
 
-      console.log(payload);
       if (!count) {
         count = 1;
       } else if (count > 50) {
@@ -202,60 +189,109 @@ initDb().then((db) => {
       const id = interaction.member.id;
       const cost = PRICE * count;
 
+      interaction.reply({
+        content: `Job started!`,
+        ephemeral: true,
+      });
+
+      const now = new Date().getTime();
+
+      const getDelta = () => {
+        return ((new Date().getTime() - now) / 1000).toFixed(1);
+      };
+
       buyPackage(id, cost)
         .then(() => {
           while (count--) {
-            client
-              .invoke({
-                FunctionName: "zorrox-cookies-dev-cookies",
-                InvocationType: "RequestResponse",
-                LogType: "Tail",
-                Payload: JSON.stringify(payload),
-              })
-              .then((res) => {
-                console.log("Done");
-                const obj = JSON.parse(
-                  decodeURIComponent(String.fromCharCode(...res.Payload))
-                );
+            const filename = `/tmp/cookie_${Math.random()}.txt`;
+            const promises = [];
 
-                if (!obj.data) {
-                  interaction.followUp({
-                    content: `Error, empty output. Try again with different options`,
-                    ephemeral: true,
-                  });
-                  return;
+            while (chunkCount--) {
+              let payload = {
+                tag,
+                country,
+                count: lcount > 10 ? 10 : lcount % 10,
+                userAgent,
+              };
+              if (proxyServer) {
+                payload = { ...payload, ...proxyServer };
+              }
+              if (include) {
+                payload.include = include
+                  .split(",")
+                  .filter((l) => l.includes("."));
+              }
+              if (exclude) {
+                payload.exclude = exclude.split(",");
+              }
+
+              console.log(payload);
+
+              promises.push(
+                client
+                  .invoke({
+                    FunctionName: "zorrox-cookies-dev-cookies",
+                    InvocationType: "RequestResponse",
+                    LogType: "Tail",
+                    Payload: JSON.stringify(payload),
+                  })
+                  .then((res) => {
+                    console.log("Done", getDelta(), "sec");
+                    const obj = JSON.parse(
+                      decodeURIComponent(String.fromCharCode(...res.Payload))
+                    );
+
+                    if (!obj.data) {
+                      // interaction.followUp({
+                      //   content: `Error, empty output. Try again with different options`,
+                      //   ephemeral: true,
+                      // });
+                      return "";
+                    }
+
+                    return Buffer.from(obj.data, "base64").toString("utf-8");
+                  })
+              );
+            }
+
+            return Promise.all(promises)
+              .then(([...strings]) => {
+                let dirtFile = strings.join("\r\n");
+                dirtFile = dirtFile.split("\r\n");
+
+                const cleanFile = [];
+                cleanFile.push(dirtFile[0]);
+
+                while (dirtFile.length) {
+                  const row = dirtFile.pop();
+                  for (const _r of dirtFile) {
+                    if (!_r.startsWith(row.split("\t").shift())) {
+                      cleanFile.push(_r);
+                    }
+                  }
                 }
 
-                console.log(obj);
-                const filename = `/tmp/cookie_${Math.random()}.txt`;
-                fs.writeFileSync(filename, Buffer.from(obj.data, "base64"));
+                return cleanFile.join("\r\n");
+              })
+              .then((output) => {
+                fs.writeFileSync(filename, output);
 
                 interaction.followUp({
                   ephemeral: true,
-                  content: "UserAgent: " + obj.userAgent,
+                  content: "UserAgent: " + userAgent,
                   files: [filename],
-                });
-              })
-              .catch((e) => {
-                interaction.followUp({
-                  content: `Error, Something not went fine... ${String(e)}`,
-                  ephemeral: true,
                 });
               });
           }
-
-          getMember(id).then((member) => {
-            interaction.reply({
-              content: `Job started!`,
-              ephemeral: true,
-            });
-          });
         })
         .catch((e) => {
-          interaction.reply({
+          interaction.followUp({
             content: `Job cannot start: ${e}`,
             ephemeral: true,
           });
+        })
+        .finally(() => {
+          console.log("Done", getDelta(), "sec");
         });
     } else if (commandName === "deposit") {
       const id = interaction.member.id;
