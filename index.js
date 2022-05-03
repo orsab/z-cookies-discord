@@ -184,12 +184,12 @@ initDb().then((db) => {
       }
 
       let chunkCount = Math.ceil(lcount / 10);
-      const options = {}
+      const uaoptions = {}
       if(device){
-        options.deviceCategory = device
+        uaoptions.deviceCategory = device
       }
 
-      const userAgentInstance = new UserAgent(options);
+      const userAgentInstance = new UserAgent(uaoptions);
       const userAgent = userAgentInstance.toString();
 
       if (!count) {
