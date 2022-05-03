@@ -97,6 +97,12 @@ initDb().then((db) => {
           type: Constants.ApplicationCommandOptionTypes.NUMBER,
         },
         {
+          name: "device",
+          description: "Pick device type or stay random",
+          type: Constants.ApplicationCommandOptionTypes.STRING,
+          choices: ['mobile','tablet','desktop'].map((c) => ({ name: c, value: c })),
+        },
+        {
           name: "lcount",
           description:
             "Count of internal site links to visit, default = 4, max = 15",
@@ -142,6 +148,7 @@ initDb().then((db) => {
       const include = options.data.find((d) => d.name === "include")?.value;
       const exclude = options.data.find((d) => d.name === "exclude")?.value;
       const proxy = options.data.find((d) => d.name === "proxy")?.value;
+      const device = options.data.find((d) => d.name === "device")?.value;
 
       let proxyServer;
 
@@ -177,7 +184,12 @@ initDb().then((db) => {
       }
 
       let chunkCount = Math.ceil(lcount / 10);
-      const userAgentInstance = new UserAgent();
+      const options = {}
+      if(device){
+        options.deviceCategory = device
+      }
+
+      const userAgentInstance = new UserAgent(options);
       const userAgent = userAgentInstance.toString();
 
       if (!count) {
